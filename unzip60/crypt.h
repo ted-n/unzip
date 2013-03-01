@@ -165,5 +165,9 @@ void init_keys OF((__GPRO__ ZCONST char *passwd));
 
 #define zfwrite  fwrite
 
+#ifdef _MBCS
+#include <iconv.h>
+#endif
+
 #endif /* ?CRYPT */
 #endif /* !__crypt_h */

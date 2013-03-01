@@ -1236,6 +1236,8 @@
 #  ifndef PREINCSTR
 #    define PREINCSTR(ptr) (ptr += CLEN(ptr))
 #  endif
+#  include <iconv.h>
+   void buf_to_locale(char *ptr);
 #  define POSTINCSTR(ptr) (___TMP_PTR=(char *)(ptr), PREINCSTR(ptr),___TMP_PTR)
    char *plastchar OF((ZCONST char *ptr, extent len));
 #  define lastchar(ptr, len) ((int)(unsigned)*plastchar(ptr, len))

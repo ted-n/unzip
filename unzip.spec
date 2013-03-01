@@ -18,6 +18,8 @@ Patch4: unzip-6.0-attribs-overflow.patch
 # Modify the configure script not to request the strip of binaries.
 Patch5: unzip-6.0-nostrip.patch
 Patch6: unzip-6.0-manpage-fix.patch
+# for s-jis file to ja_JP.utf8
+Patch7: unzip-6.0-japanese_charset.patch
 URL: http://www.info-zip.org/UnZip.html
 BuildRequires:  bzip2-devel
 
@@ -40,9 +42,10 @@ a zip archive.
 %patch4 -p1 -b .attribs-overflow
 %patch5 -p1 -b .nostrip
 %patch6 -p1 -b .manpage-fix
+%patch7 -p1 -b .japanese_charset
 
 %build
-make -f unix/Makefile CF_NOOPT="-I. -DUNIX $RPM_OPT_FLAGS" generic_gcc %{?_smp_mflags}
+make -f unix/Makefile CF_NOOPT="-I. -D_FILE_OFFSET_BITS=64 -DNO_LCHMOD -D_MBCS -DNO_WORKING_ISPRINT -DUNIX $RPM_OPT_FLAGS" generic_gcc %{?_smp_mflags}
 
 %install
 rm -rf $RPM_BUILD_ROOT
@@ -55,6 +58,9 @@ make -f unix/Makefile prefix=$RPM_BUILD_ROOT%{_prefix} MANDIR=$RPM_BUILD_ROOT/%{
 %{_mandir}/*/*
 
 %changelog
+* Fri Mar 01 2013 Takashi Nakajima <ted.nakajima@gmail.com> 6.0-7
+- Add patch for japanese charset (Shift-JIS)
+
 * Mon Dec 10 2012 Michal Luscon <mluscon@redhat.com> 6.0-7
 - Resolves: #884679 - zip files with bzip2 compression 
 

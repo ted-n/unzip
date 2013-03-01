@@ -214,7 +214,7 @@ char *do_wild(__G__ wildspec)
         }
 
         /* break the wildspec into a directory part and a wildcard filename */
-        if ((G.wildname = (ZCONST char *)strrchr(wildspec, '/')) == NULL) {
+        if ((G.wildname = (ZCONST char *)MBSRCHR(wildspec, '/')) == NULL) {
             G.dirname = ".";
             G.dirnamelen = 1;
             G.have_dirname = FALSE;
@@ -542,7 +542,7 @@ int mapname(__G__ renamed)
     *pathcomp = '\0';           /* initialize translation buffer */
     pp = pathcomp;              /* point to translation buffer */
     if (uO.jflag)               /* junking directories */
-        cp = (char *)strrchr(G.filename, '/');
+        cp = (char *)MBSRCHR(G.filename, '/');
     if (cp == (char *)NULL)     /* no '/' or not junking dirs */
         cp = G.filename;        /* point to internal zipfile-member pathname */
     else

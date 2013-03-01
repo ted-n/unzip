@@ -192,10 +192,76 @@ void init_keys(__G__ passwd)
     GLOBAL(keys[0]) = 305419896L;
     GLOBAL(keys[1]) = 591751049L;
     GLOBAL(keys[2]) = 878082192L;
+#ifdef _MBCS
+    char *buf, *bufp, *inbufp;
+    size_t inlen, outlen, size, inleft, outleft;
+    int i, updated = 0;
+    iconv_t cd;
+    static int mode = -1;
+    static char *locale_charset = NULL;
+
+    if (mode == -1) {
+      const char *ctype = setlocale(LC_CTYPE, "");
+      size_t ctype_len = 0;
+      if ( ctype != NULL ) ctype_len = strlen(ctype);
+
+      if ( (ctype_len >= 5 ) &&
+	   ((strncasecmp(ctype + ctype_len -5, "UTF-8", 5) == 0) ||
+	    (strncasecmp(ctype + ctype_len -4, "utf8", 4) == 0))) {
+        mode = 1;
+        locale_charset = "UTF-8";
+      } else if ( ( (ctype_len >= 6 ) && (strncasecmp(ctype + ctype_len - 6, "EUC-JP", 6) == 0) ) ||
+                  ( (ctype_len >= 5 ) && (strncasecmp(ctype + ctype_len - 5, "eucJP",  5) == 0) ) ||
+                  ( (ctype_len >= 4 ) && (strncasecmp(ctype + ctype_len - 4, "ujis",   4) == 0) ) ) {
+        mode = 2;
+        locale_charset = "EUC-JP";
+/*
+      } else if ( ( (ctype_len >= 9 ) && (strncmp(ctype + ctype_len - 9, "Shift_JIS", 9) == 0) ) ||
+                  ( (ctype_len >= 4 ) && (strncmp(ctype + ctype_len - 4, "SJIS",      4) == 0) ) ||
+                  ( (ctype_len >= 4 ) && (strncmp(ctype + ctype_len - 4, "sjis",      4) == 0) ) ) {
+        mode = 3;
+        locale_charset = "CP932";
+*/
+      } else {
+        mode = 0;
+      }
+    }
+
+    if ( (mode > 0) && (locale_charset != NULL) ) {
+      inlen = strlen(passwd);
+      size = inlen * 6;
+      buf = malloc(size);
+      inleft = inlen;
+      outleft = size;
+      inbufp = (char *)passwd;
+      bufp = buf;
+      cd = iconv_open("CP932", locale_charset);
+      if (cd != (iconv_t)-1) {
+        iconv(cd, &inbufp, &inleft, &bufp, &outleft);
+        iconv_close(cd);
+        if (inleft == 0) {
+	  outlen = size - outleft;
+	  for(i=0; i<outlen; i++) {
+	    update_keys(__G__ (int)*(buf+i));
+	  }
+	  updated = 1;
+	}
+      }
+      free(buf);
+    }
+
+    if ( updated <= 0 ) {
+      while (*passwd != '\0') {
+        update_keys(__G__ (int)*passwd);
+        passwd++;
+      }
+    }
+#else
     while (*passwd != '\0') {
         update_keys(__G__ (int)*passwd);
         passwd++;
     }
+#endif
 }
 
 

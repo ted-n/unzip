@@ -2126,9 +2126,14 @@ int do_string(__G__ length, option)   /* return PK-type error code */
                 /* translate the text coded in the entry's host-dependent
                    "extended ASCII" charset into the compiler's (system's)
                    internal text code page */
+#ifdef _MBCS
+	      if (G.pInfo->hostnum != UNIX_ )
+		buf_to_locale((char *)G.outbuf);
+#else
                 Ext_ASCII_TO_Native((char *)G.outbuf, G.pInfo->hostnum,
                                     G.pInfo->hostver, G.pInfo->HasUxAtt,
                                     FALSE);
+#endif
 #ifdef WINDLL
                 /* translate to ANSI (RTL internal codepage may be OEM) */
                 INTERN_TO_ISO((char *)G.outbuf, (char *)G.outbuf);
@@ -2140,7 +2145,12 @@ int do_string(__G__ length, option)   /* return PK-type error code */
 #endif /* (WIN32 && !_WIN32_WCE) */
 #endif /* ?WINDLL */
             } else {
+#ifdef _MBCS
+	      if (G.pInfo->hostnum != UNIX_ )
+		buf_to_locale((char *)G.outbuf);
+#else
                 A_TO_N(G.outbuf);   /* translate string to native */
+#endif
             }
 
 #ifdef WINDLL
@@ -2238,10 +2248,15 @@ int do_string(__G__ length, option)   /* return PK-type error code */
         G.filename[length] = '\0';      /* terminate w/zero:  ASCIIZ */
 #endif /* ?UNICODE_SUPPORT */
 
+#ifdef _MBCS
+	if (G.pInfo->hostnum != UNIX_ )
+	  buf_to_locale(G.filename);
+#else
         /* translate the Zip entry filename coded in host-dependent "extended
            ASCII" into the compiler's (system's) internal text code page */
         Ext_ASCII_TO_Native(G.filename, G.pInfo->hostnum, G.pInfo->hostver,
                             G.pInfo->HasUxAtt, (option == DS_FN_L));
+#endif
 
         if (G.pInfo->lcflag)      /* replace with lowercase filename */
             STRLOWER(G.filename, G.filename);
@@ -2533,8 +2548,80 @@ char *fzofft(__G__ val, pre, post)
     return G.fzofft_buf[G.fzofft_index];
 }
 
+void buf_to_locale(char *ptr)
+{
+	char *buf, *bufp, *inbufp;
+	size_t inlen, outlen, size, inleft, outleft;
+	int i;
+	iconv_t cd;
+	static int mode = -1;
+	static char *locale_charset = NULL;
+	static const char* charsets[] = {
+		"UTF-8",
+		"CP932",
+		"EUC-JP",
+		"ISO-2022-JP",
+		NULL
+	};
 
+	if (mode == 0) return;
 
+	if (mode == -1) {
+		const char *ctype = setlocale(LC_CTYPE, "");
+		if ( ctype == NULL ) {
+			mode = 0;
+			return;
+		}
+		size_t ctype_len = strlen(ctype);
+
+		if((ctype_len >= 5 ) &&
+		   ((strncasecmp(ctype + ctype_len -5, "UTF-8", 5) == 0) ||
+		    (strncasecmp(ctype + ctype_len -4, "utf8", 4) == 0))) {
+			mode = 1;
+			locale_charset = "UTF-8";
+		}else if(((ctype_len >= 6 ) &&
+				  (strncasecmp(ctype + ctype_len - 6, "EUC-JP", 6) == 0)) ||
+				 ((ctype_len >= 5 ) &&
+				  (strncasecmp(ctype + ctype_len - 5, "eucjp",  5) == 0)) ||
+				 ((ctype_len >= 4 ) &&
+				  (strncasecmp(ctype + ctype_len - 4, "ujis",   4) == 0))){
+			mode = 2;
+			locale_charset = "EUC-JP";
+		} else if (((ctype_len >= 9 ) &&
+					(strncasecmp(ctype + ctype_len - 9, "Shift_JIS", 9) == 0) ) ||
+					((ctype_len >= 4 ) &&
+					 (strncasecmp(ctype + ctype_len - 4, "sjis",      4) == 0) ) ) {
+			mode = 3;
+			locale_charset = "CP932";
+		} else {
+			mode = 0;
+			return;
+		}
+	}
+	if (locale_charset == NULL) return;
+
+	inlen = strlen(ptr);
+	size = inlen * 6;
+	buf = malloc(size);
+
+	for (i=0; charsets[i]; i++) {
+		inleft = inlen;
+		outleft = size;
+		inbufp = ptr;
+		bufp = buf;
+		if (strcmp(locale_charset, charsets[i]) == 0) continue;
+		cd = iconv_open(locale_charset, charsets[i]);
+		if (cd == (iconv_t)-1) continue;
+		iconv(cd, &inbufp, &inleft, &bufp, &outleft);
+		iconv_close(cd);
+		if (inleft != 0) continue;
+		outlen = size - outleft;
+		memcpy(ptr, buf, outlen);
+		ptr[outlen] = '\0';
+		break;
+	}
+	free(buf);
+}
 
 #if CRYPT
 
@@ -2563,6 +2650,13 @@ char *str2iso(dst, src)
 }
 #endif /* NEED_STR2ISO */
 
+int uzmblen(ZCONST unsigned char *ptr) {
+  int i;
+  i = mblen((const char*) ptr, MB_CUR_MAX);
+  if (i >= 0) return i;
+  /* fprintf(stderr, " uzmblen: multi byte strings error (%02x)\n", *ptr); */
+  return 1;
+}
 
 #ifdef NEED_STR2OEM
 /**********************/
